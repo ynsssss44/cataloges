@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Product Catalog</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* Custom scrollbar for horizontal category list */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Smooth fade in for modal */
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 300ms, transform 300ms;
+        }
+        .modal-exit {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .modal-exit-active {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 300ms, transform 300ms;
+        }
+
+        body {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased pb-20">
+
+    <!-- Header -->
+    <header class="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-100">
+        <div class="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold text-gray-900 tracking-tight" id="store-name">The Minimalist</h1>
+                <p class="text-xs text-gray-500">Curated Collection</p>
+            </div>
+            <button id="search-btn" class="p-2 rounded-full hover:bg-gray-100 transition">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Search Bar (Hidden by default) -->
+        <div id="search-container" class="hidden px-4 pb-3 max-w-md mx-auto">
+            <input type="text" id="search-input" placeholder="Search products..." class="w-full bg-gray-100 border-none rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-gray-800 outline-none">
+        </div>
+
+        <!-- Category Filter -->
+        <nav class="max-w-md mx-auto">
+            <ul class="flex overflow-x-auto no-scrollbar px-4 py-2 gap-2" id="category-list">
+                <!-- Categories injected via JS -->
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-md mx-auto px-4 pt-4 min-h-screen">
+        <div id="product-grid" class="grid grid-cols-2 gap-4">
+            <!-- Products injected via JS -->
+        </div>
+        
+        <div id="empty-state" class="hidden text-center py-20">
+            <p class="text-gray-500">No products found.</p>
+            <button id="clear-search" class="mt-2 text-blue-600 font-medium">Clear filters</button>
+        </div>
+    </main>
+    
+    <!-- Footer Info -->
+    <footer class="max-w-md mx-auto px-4 py-8 text-center text-gray-400 text-sm">
+        <p>&copy; 2023 The Minimalist Catalog</p>
+    </footer>
+
+    <!-- Product Detail Modal Overlay -->
+    <div id="product-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <!-- Backdrop -->
+        <div id="modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity opacity-0"></div>
+        
+        <!-- Content Card -->
+        <div id="modal-content" class="relative bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-95 opacity-0 flex flex-col max-h-[90vh]">
+            
+            <!-- Close Button -->
+            <button id="close-modal" class="absolute top-3 right-3 z-10 bg-white/80 backdrop-blur-md p-2 rounded-full shadow-sm hover:bg-white transition text-gray-800">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+
+            <!-- Image Area -->
+            <div class="h-64 sm:h-72 bg-gray-100 relative">
+                <img id="modal-img" src="" alt="Product Detail" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4">
+                    <span id="modal-category" class="inline-block px-2 py-1 bg-white/20 backdrop-blur-md text-white text-xs rounded-md mb-1">Category</span>
+                </div>
+            </div>
+
+            <!-- Details Area -->
+            <div class="p-6 overflow-y-auto">
+                <div class="flex justify-between items-start mb-2">
+                    <h2 id="modal-title" class="text-2xl font-bold text-gray-900 leading-tight">Product Name</h2>
+                    <span id="modal-price" class="text-xl font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg ml-2 whitespace-nowrap">$0.00</span>
+                </div>
+                
+                <div class="border-t border-gray-100 my-4"></div>
+                
+                <h3 class="text-sm font-semibold text-gray-900 mb-2">Description</h3>
+                <p id="modal-desc" class="text-gray-600 text-sm leading-relaxed mb-6">
+                    Description goes here...
+                </p>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <span class="block text-xs text-gray-400 uppercase tracking-wider">SKU</span>
+                        <span id="modal-sku" class="font-mono text-sm font-medium">#0000</span>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg">
+                        <span class="block text-xs text-gray-400 uppercase tracking-wider">Availability</span>
+                        <span id="modal-stock" class="text-sm font-medium text-green-600">In Stock</span>
+                    </div>
+                </div>
+
+                <!-- Custom Field (Flexible for businesses) -->
+                <div id="modal-extras" class="hidden bg-blue-50 p-3 rounded-lg text-blue-800 text-sm">
+                    <!-- Dynamic extra info -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const config = {
+            storeName: "Luxe Catalog",
+            storeSubtitle: "Premium Goods",
+            currencySymbol: "$",
+            // You can replace this data with a fetch() call to a JSON file or API
+        };
+
+        // --- Mock Data ---
+        // Image placeholders using unsplash source for demo purposes
+        const catalogData = [
+            {
+                id: 1,
+                name: "Classic Leather Watch",
+                price: 129.99,
+                category: "Accessories",
+                description: "A timeless piece featuring a genuine leather strap and a minimalist dial. Water-resistant up to 50 meters. Perfect for both casual and formal occasions.",
+                image: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&q=80&w=600",
+                sku: "WT-001",
+                inStock: true
+            },
+            {
+                id: 2,
+                name: "Wireless Noise-Cancelling Headphones",
+                price: 249.50,
+                category: "Electronics",
+                description: "Experience pure sound with our top-tier noise-cancelling technology. 30-hour battery life and plush ear cushions for all-day comfort.",
+                image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600",
+                sku: "AU-202",
+                inStock: true
+            },
+            {
+                id: 3,
+                name: "Ceramic Coffee Pour-Over Set",
+                price: 45.00,
+                category: "Home",
+                description: "Artisan crafted ceramic dripper and server. Designed for the perfect bloom and extraction. Includes 10 filters to get you started.",
+                image: "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fimg.ltwebstatic.com%2Fimages3_spmp%2F2024%2F11%2F29%2Fd9%2F173285743490e285eab241b93c54d052893f69cc99_thumbnail_900x.jpg&f=1&nofb=1&ipt=92a0eefc512586222740eab915f691a6fe07ea55d3e74d8c09b996799bed38d3",
+                sku: "HM-303",
+                inStock: false
+            },
+            {
+                id: 4,
+                name: "Organic Cotton T-Shirt",
+                price: 28.00,
+                category: "Apparel",
+                description: "100% organic cotton, ethically sourced and manufactured. Soft, breathable, and pre-shrunk to ensure a perfect fit wash after wash.",
+                image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&q=80&w=600",
+                sku: "AP-404",
+                inStock: true
+            },
+            {
+                id: 5,
+                name: "Minimalist Desk Lamp",
+                price: 89.00,
+                category: "Home",
+                description: "Sleek metal design with adjustable brightness and color temperature. A modern addition to any workspace.",
+                image: "https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fcdn.shopify.com%2Fs%2Ffiles%2F1%2F0005%2F7196%2F5500%2Fproducts%2F530a7bfea9103dde759b0bbb6f565df8_2048x2048.jpg%3Fv%3D1519821638&f=1&nofb=1&ipt=6c73f6a8ec78fb2b08c566dbf527908d6714fcd6414ac0c40c0eede214758053",
+                sku: "HM-505",
+                inStock: true
+            },
+            {
+                id: 6,
+                name: "Polarized Sunglasses",
+                price: 115.00,
+                category: "Accessories",
+                description: "UV400 protection with durable acetate frames. Reduce glare and enhance clarity on sunny days.",
+                image: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&q=80&w=600",
+                sku: "AC-606",
+                inStock: true
+            },
+            {
+                id: 7,
+                name: "Smart Fitness Tracker",
+                price: 59.99,
+                category: "Electronics",
+                description: "Track your steps, heart rate, and sleep quality. Syncs seamlessly with both iOS and Android devices.",
+                image: "https://images.unsplash.com/photo-1575311373937-040b8e1fd5b6?auto=format&fit=crop&q=80&w=600",
+                sku: "EL-707",
+                inStock: true
+            },
+            {
+                id: 8,
+                name: "Leather Weekend Bag",
+                price: 185.00,
+                category: "Travel",
+                description: "Spacious and durable, this leather bag is perfect for short getaways. Features a shoe compartment and multiple pockets.",
+                image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=600",
+                sku: "TR-808",
+                inStock: false
+            }
+        ];
+
+        // --- State ---
+        let currentCategory = 'All';
+        let searchQuery = '';
+
+        // --- Elements ---
+        const els = {
+            storeName: document.getElementById('store-name'),
+            grid: document.getElementById('product-grid'),
+            categoryList: document.getElementById('category-list'),
+            searchBtn: document.getElementById('search-btn'),
+            searchContainer: document.getElementById('search-container'),
+            searchInput: document.getElementById('search-input'),
+            emptyState: document.getElementById('empty-state'),
+            modal: document.getElementById('product-modal'),
+            modalBackdrop: document.getElementById('modal-backdrop'),
+            modalContent: document.getElementById('modal-content'),
+            closeModalBtn: document.getElementById('close-modal'),
+            // Modal fields
+            mImg: document.getElementById('modal-img'),
+            mCategory: document.getElementById('modal-category'),
+            mTitle: document.getElementById('modal-title'),
+            mPrice: document.getElementById('modal-price'),
+            mDesc: document.getElementById('modal-desc'),
+            mSku: document.getElementById('modal-sku'),
+            mStock: document.getElementById('modal-stock'),
+            clearSearch: document.getElementById('clear-search')
+        };
+
+        // --- Initialization ---
+        function init() {
+            els.storeName.textContent = config.storeName;
+            els.storeName.nextElementSibling.textContent = config.storeSubtitle;
+            
+            renderCategories();
+            renderProducts();
+            
+            setupEventListeners();
+        }
+
+        // --- Rendering ---
+        function renderCategories() {
+            // Extract unique categories
+            const categories = ['All', ...new Set(catalogData.map(p => p.category))];
+            
+            els.categoryList.innerHTML = categories.map(cat => `
+                <li class="flex-shrink-0">
+                    <button 
+                        class="px-4 py-1.5 rounded-full text-sm font-medium transition-all ${currentCategory === cat ? 'bg-gray-900 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}"
+                        onclick="setCategory('${cat}')"
+                    >
+                        ${cat}
+                    </button>
+                </li>
+            `).join('');
+        }
+
+        function renderProducts() {
+            // Filter
+            const filtered = catalogData.filter(p => {
+                const matchesCategory = currentCategory === 'All' || p.category === currentCategory;
+                const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      p.description.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesCategory && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                els.grid.classList.add('hidden');
+                els.emptyState.classList.remove('hidden');
+            } else {
+                els.grid.classList.remove('hidden');
+                els.emptyState.classList.add('hidden');
+                
+                els.grid.innerHTML = filtered.map(p => `
+                    <div 
+                        onclick="openProductModal(${p.id})"
+                        class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-95 duration-200"
+                    >
+                        <div class="aspect-square bg-gray-100 relative overflow-hidden">
+                            <img src="${p.image}" loading="lazy" alt="${p.name}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105">
+                            ${!p.inStock ? '<div class="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SOLD OUT</div>' : ''}
+                        </div>
+                        <div class="p-3">
+                            <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-1">${p.category}</p>
+                            <h3 class="font-bold text-gray-900 text-sm leading-snug mb-1 truncate">${p.name}</h3>
+                            <p class="text-emerald-700 font-semibold text-sm">${config.currencySymbol}${p.price.toFixed(2)}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // --- Actions ---
+        window.setCategory = (cat) => {
+            currentCategory = cat;
+            renderCategories(); // Re-render to update active state
+            renderProducts();
+        };
+
+        window.openProductModal = (id) => {
+            const product = catalogData.find(p => p.id === id);
+            if (!product) return;
+
+            // Populate Modal
+            els.mImg.src = product.image;
+            els.mCategory.textContent = product.category;
+            els.mTitle.textContent = product.name;
+            els.mPrice.textContent = `${config.currencySymbol}${product.price.toFixed(2)}`;
+            els.mDesc.textContent = product.description;
+            els.mSku.textContent = product.sku;
+            
+            if(product.inStock) {
+                els.mStock.textContent = "Available";
+                els.mStock.className = "text-sm font-medium text-emerald-600";
+            } else {
+                els.mStock.textContent = "Out of Stock";
+                els.mStock.className = "text-sm font-medium text-red-500";
+            }
+
+            // Show Modal
+            els.modal.classList.remove('hidden');
+            // Small delay to allow display:block to apply before transition
+            setTimeout(() => {
+                els.modalBackdrop.classList.remove('opacity-0');
+                els.modalContent.classList.remove('opacity-0', 'scale-95');
+                els.modalContent.classList.add('opacity-100', 'scale-100');
+            }, 10);
+            
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+        };
+
+        function closeModal() {
+            els.modalBackdrop.classList.add('opacity-0');
+            els.modalContent.classList.remove('opacity-100', 'scale-100');
+            els.modalContent.classList.add('opacity-0', 'scale-95');
+            
+            setTimeout(() => {
+                els.modal.classList.add('hidden');
+                els.mImg.src = ""; // Clear image
+                document.body.style.overflow = '';
+            }, 300);
+        }
+
+        function setupEventListeners() {
+            // Search toggle
+            els.searchBtn.addEventListener('click', () => {
+                els.searchContainer.classList.toggle('hidden');
+                if (!els.searchContainer.classList.contains('hidden')) {
+                    els.searchInput.focus();
+                }
+            });
+
+            // Search Input
+            els.searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value;
+                renderProducts();
+            });
+            
+            // Clear Search from empty state
+            els.clearSearch.addEventListener('click', () => {
+                searchQuery = '';
+                currentCategory = 'All';
+                els.searchInput.value = '';
+                renderCategories();
+                renderProducts();
+            });
+
+            // Close Modal
+            els.closeModalBtn.addEventListener('click', closeModal);
+            els.modalBackdrop.addEventListener('click', closeModal);
+            
+            // Close on Escape
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !els.modal.classList.contains('hidden')) {
+                    closeModal();
+                }
+            });
+        }
+
+        // Start
+        init();
+
+    </script>
+</body>
+</html>
